@@ -233,6 +233,11 @@ img.abs{display:block;max-width:none;pointer-events:none;user-select:none}
 .dp-msg{display:none;position:absolute;left:0;right:0;bottom:22px;text-align:center;color:rgba(255,255,255,.7);font-size:16px}
 .demo-player.novideo .dp-video{display:none}
 .demo-player.novideo .dp-msg{display:block}
+.demo-player{transform-origin:50% 50%;transition:transform .55s cubic-bezier(.22,.8,.25,1),box-shadow .55s ease;z-index:6}
+.demo-player.expanded{animation:none!important;transform:translate(438px,103px) scale(1.9);box-shadow:0 30px 80px rgba(0,8,40,.55);z-index:20}
+.dp-backdrop{position:absolute;left:0;top:0;width:1920px;height:1080px;background:rgba(0,10,45,.45);opacity:0;pointer-events:none;transition:opacity .45s ease;z-index:19}
+.dp-backdrop.on{opacity:1;pointer-events:auto;cursor:pointer}
+.dp-big{transition:opacity .25s ease,background .2s,transform .2s}
 /* timeline from Figma: 2.4s, button → question → answer → card */
 .step .t-btn{animation:fadeIn .5s ease-out both}
 .step .t-q{animation:rise .5s ease-out .3s both}
@@ -515,7 +520,7 @@ img.abs{display:block;max-width:none;pointer-events:none;user-select:none}
   }
 
   function show(id){
-    if(!/^#demo-/.test(location.hash)) document.querySelectorAll('.dp-video').forEach(v=>{v.pause();});
+    document.querySelectorAll('.dp-video').forEach(v=>v.pause()); document.querySelectorAll('.demo-player.expanded').forEach(b=>b.classList.remove('expanded')); document.querySelectorAll('.dp-backdrop.on').forEach(b=>b.classList.remove('on'));
     if(id==='welcome' && typeof playIntro==='function') setTimeout(playIntro,50);
     document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='s-'+id));
   }
@@ -582,16 +587,22 @@ img.abs{display:block;max-width:none;pointer-events:none;user-select:none}
     const dv=st.querySelector('.dp-video');
     if(dv){
       const box=st.querySelector('.demo-player');
+      const bd=document.createElement('div'); bd.className='dp-backdrop'; st.insertBefore(bd,box);
+      dv.muted=true; dv.defaultMuted=true; dv.loop=false;
       const sync=()=>box.classList.toggle('playing',!dv.paused&&!dv.ended);
-      ['play','pause','ended'].forEach(e=>dv.addEventListener(e,sync));
+      ['play','pause','ended'].forEach(ev=>dv.addEventListener(ev,sync));
       dv.addEventListener('error',()=>box.classList.add('novideo'));
-      const play=()=>{ dv.muted=false; const p=dv.play(); if(p&&p.catch) p.catch(()=>{ dv.muted=true; dv.play().catch(()=>{}); }); };
-      const toggle=()=>{ if(dv.paused||dv.ended) play(); else dv.pause(); };
+      const open=()=>{ box.classList.add('expanded'); bd.classList.add('on'); };
+      const close=()=>{ box.classList.remove('expanded'); bd.classList.remove('on'); };
+      const start=()=>{ open(); if(dv.ended) dv.currentTime=0; dv.muted=true; const p=dv.play(); if(p&&p.catch) p.catch(()=>{}); };
+      const stop=()=>{ dv.pause(); close(); };
+      const toggle=()=>{ if(dv.paused||dv.ended) start(); else stop(); };
       dv.addEventListener('click',toggle);
-      st.querySelector('.dp-big').addEventListener('click',play);
+      bd.addEventListener('click',stop);
+      st.querySelector('.dp-big').addEventListener('click',start);
       st.querySelector('.dp-play').addEventListener('click',toggle);
-      st.querySelector('.dp-rep').addEventListener('click',()=>{ dv.currentTime=0; play(); });
-      setTimeout(play,700);
+      st.querySelector('.dp-rep').addEventListener('click',()=>{ dv.currentTime=0; start(); });
+      dv.addEventListener('ended',()=>{ setTimeout(()=>{ close(); dv.currentTime=0; },600); });
     }
     void chat.offsetWidth;
     const N=L.steps.length, dots=document.querySelector('#s-lob .dots'), rail=document.querySelector('#s-lob .rail');
