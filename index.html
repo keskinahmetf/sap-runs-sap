@@ -214,8 +214,8 @@ img.abs{display:block;max-width:none;pointer-events:none;user-select:none}
 #s-lob.rail-demo .rail .fwd,#s-lob.rail-demo .rail .dots{display:none}
 .demo-player{border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.25)}
 .dp-screen{display:flex;align-items:center;justify-content:center;width:100%;height:365px;background:radial-gradient(120% 90% at 50% 40%,#0b1d52 0%,#020c2c 70%)}
-.dp-big{width:86px;height:86px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;padding-left:6px;transition:background .2s,transform .2s}
-.dp-screen:hover .dp-big{background:rgba(255,255,255,.24);transform:scale(1.06)}
+.dp-big{width:86px;height:86px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center;padding:0;transition:background .2s}
+.dp-screen:hover .dp-big{background:rgba(255,255,255,.24)}
 .dp-bar{height:47px;background:var(--bar);position:relative}
 .dp-play{position:absolute;left:307px;top:7px}
 .dp-rep{position:absolute;right:20px;top:9px}
@@ -228,14 +228,15 @@ img.abs{display:block;max-width:none;pointer-events:none;user-select:none}
 .intro-video{left:0;top:0;width:1920px;height:1080px;object-fit:cover;pointer-events:none}
 .dp-screen{position:relative;overflow:hidden}
 .dp-video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000;cursor:pointer}
-.dp-big{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+.dp-big{position:absolute;inset:0;margin:auto}
 .demo-player.playing .dp-big{opacity:0;pointer-events:none}
 .dp-msg{display:none;position:absolute;left:0;right:0;bottom:22px;text-align:center;color:rgba(255,255,255,.7);font-size:16px}
 .demo-player.novideo .dp-video{display:none}
 .demo-player.novideo .dp-msg{display:block}
-.demo-player{transform-origin:50% 50%;transition:transform .55s cubic-bezier(.22,.8,.25,1),box-shadow .55s ease;z-index:6}
-.demo-player.expanded{animation:none!important;transform:translate(438px,103px) scale(1.9);box-shadow:0 30px 80px rgba(0,8,40,.55);z-index:20}
-.dp-backdrop{position:absolute;left:0;top:0;width:1920px;height:1080px;background:rgba(0,10,45,.45);opacity:0;pointer-events:none;transition:opacity .45s ease;z-index:19}
+.demo-player{transform-origin:50% 50%;transition:transform 1s cubic-bezier(.65,0,.35,1),box-shadow 1s ease,z-index 0s linear 1s;z-index:6}
+.demo-player.settled{animation:none!important}
+.demo-player.expanded{transform:translate(438px,103px) scale(1.9);box-shadow:0 30px 80px rgba(0,8,40,.55);z-index:20;transition:transform 1s cubic-bezier(.65,0,.35,1),box-shadow 1s ease,z-index 0s}
+.dp-backdrop{position:absolute;left:0;top:0;width:1920px;height:1080px;background:rgba(0,10,45,.45);opacity:0;pointer-events:none;transition:opacity 1s ease;z-index:19}
 .dp-backdrop.on{opacity:1;pointer-events:auto;cursor:pointer}
 .dp-big{transition:opacity .25s ease,background .2s,transform .2s}
 /* timeline from Figma: 2.4s, button → question → answer → card */
@@ -589,20 +590,20 @@ img.abs{display:block;max-width:none;pointer-events:none;user-select:none}
       const box=st.querySelector('.demo-player');
       const bd=document.createElement('div'); bd.className='dp-backdrop'; st.insertBefore(bd,box);
       dv.muted=true; dv.defaultMuted=true; dv.loop=false;
-      const sync=()=>box.classList.toggle('playing',!dv.paused&&!dv.ended);
-      ['play','pause','ended'].forEach(ev=>dv.addEventListener(ev,sync));
       dv.addEventListener('error',()=>box.classList.add('novideo'));
-      const open=()=>{ box.classList.add('expanded'); bd.classList.add('on'); };
+      let timer=null;
+      const open=()=>{ box.classList.add('settled'); void box.offsetWidth; box.classList.add('expanded'); bd.classList.add('on'); };
       const close=()=>{ box.classList.remove('expanded'); bd.classList.remove('on'); };
-      const start=()=>{ open(); if(dv.ended) dv.currentTime=0; dv.muted=true; const p=dv.play(); if(p&&p.catch) p.catch(()=>{}); };
-      const stop=()=>{ dv.pause(); close(); };
-      const toggle=()=>{ if(dv.paused||dv.ended) start(); else stop(); };
+      const start=()=>{ const wasOpen=box.classList.contains('expanded'); open(); if(dv.ended) dv.currentTime=0; dv.muted=true; clearTimeout(timer);
+        timer=setTimeout(()=>{ const p=dv.play(); if(p&&p.catch) p.catch(()=>{}); }, wasOpen?0:900); box.classList.add('playing'); };
+      const stop=()=>{ clearTimeout(timer); dv.pause(); box.classList.remove('playing'); close(); };
+      const toggle=()=>{ if(box.classList.contains('expanded')) stop(); else start(); };
       dv.addEventListener('click',toggle);
       bd.addEventListener('click',stop);
       st.querySelector('.dp-big').addEventListener('click',start);
       st.querySelector('.dp-play').addEventListener('click',toggle);
       st.querySelector('.dp-rep').addEventListener('click',()=>{ dv.currentTime=0; start(); });
-      dv.addEventListener('ended',()=>{ setTimeout(()=>{ close(); dv.currentTime=0; },600); });
+      dv.addEventListener('ended',()=>{ box.classList.remove('playing'); setTimeout(()=>{ close(); setTimeout(()=>{ dv.currentTime=0; },1000); },500); });
     }
     void chat.offsetWidth;
     const N=L.steps.length, dots=document.querySelector('#s-lob .dots'), rail=document.querySelector('#s-lob .rail');
